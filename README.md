@@ -12,7 +12,7 @@ I cleaned a messy survey dataset of 2,000 respondents from the Ilocos Region, th
 
 ## About the data
 
-The dataset was created by the training's trainer for practice, so it is synthetic, not a real survey. It is available on Kaggle: KAGGLE_LINK. It has 22 columns covering demographics (age, sex, marital status, province), body measurements, daily hours spent on work, sleep and personal activities, monthly salary, education, home and car ownership, a Perceived Stress Scale score and a Happiness Index.
+The dataset was created by the training's trainer for practice, so it is synthetic, not a real survey. It is available on Kaggle: *(to follow)*. It has 22 columns covering demographics (age, sex, marital status, province), body measurements, daily hours spent on work, sleep and personal activities, monthly salary, education, home and car ownership, a Perceived Stress Scale score and a Happiness Index.
 
 Since the data is synthetic, the findings below describe this dataset only and shouldn't be read as facts about the Ilocos Region.
 

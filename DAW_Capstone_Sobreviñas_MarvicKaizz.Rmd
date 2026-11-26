@@ -1,0 +1,590 @@
+---
+title: "Data Analytics using R - Capstone"
+author: "Marvic Kaizz D.J. Sobreviñas"
+date: "2026-11-25"
+output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Welcome to the Data Analytics Webinar by the Department of Information
+and Communications Technology - ICT Academy.
+
+For this capstone project, you will have to perform 10 tasks as
+required.
+
+But first be sure to load your dataset.
+
+### First, load your dataset.
+
+```{r}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+
+library(ggplot2)
+data <- read.csv("dummy_filipino_profile.csv") # Create your own variable
+```
+
+### Data Cleaning, Manipulation, and Validation
+
+Before performing the multiple linear regression analysis, ensure that
+your data set is properly cleaned and prepared. Identify and correct
+data quality issues that may affect the accuracy and reliability of your
+results.
+
+Consider the following:
+
+1.  Incorrect Data Types – Identify variables that should be numeric but
+    are stored as character. Convert them to their appropriate data
+    types before conducting the analysis.
+
+*Check the data types of the columns first.*
+
+```{r}
+str(data)
+```
+
+*So far, all columns that are supposed to be numeric are not stored as character. Thus, no further cleaning is needed.*
+
+2.  Impossible or Invalid Values – Identify observations containing
+    values that are logically or practically impossible. Review the
+    affected records and correct or exclude invalid observations as
+    appropriate.
+
+```{r}
+summary(data)
+```
+
+*After seeing the summary of the data, here are my observations regarding impossible and/or invalid values:*
+
+* *Age has a minimum of zero and a maximum of 147;*
+* *Weight has a minimum of 2.1 kg;*
+
+*With that, this is my basis for excluding some values:*
+
+* *For Age, I'll set the minimum to 16 so that all respondents are past the youngest legal working age in the Philippines (15), and I'll set the maximum to 100 because one can't be reasonably older than that.*
+* *For Weight, a typical Filipino who is at least 16 years old cannot weigh under 30 kg, so I'll set that as my minimum. There's no extreme maximum so I'll leave it as is.*
+
+```{r}
+data$valid <- !is.na(data$Age) & data$Age >= 16 & data$Age <= 100 &
+              !is.na(data$Weight) & data$Weight >= 30
+```
+
+3.  Fixed Categories – Standardize categorical variables to their
+    prescribed categories. Check for inconsistent spelling,
+    capitalization, abbreviations, and other variations.
+
+*Inspect the data first, specifically the ones that should be categorical such as Sex, Marital_Status, Province, Region, Educational_Attainment, and Discipline_Group.*
+
+```{r}
+unique(data$Sex)
+unique(data$Marital_Status)
+unique(data$Province)
+unique(data$Region)
+unique(data$Educational_Attainment)
+```
+
+*After seeing the values for each column checked, here's what I decided to do:*
+
+* *For Sex, standardize the entries as "Female" or "Male".*
+* *For Marital_Status, standardize the entries as "Annulled", "Common-Law", "Divorced", "Married", "Single", "Separated", and "Widowed".*
+* *For Province, standardize the entries as "Ilocos Norte", "Ilocos Sur", "La Union", and "Pangasinan".*
+* *For Region and Educational_Attainment, I'll leave them as is since they're clean.*
+
+```{r}
+# For Sex
+data$Sex <- trimws(data$Sex)
+data$Sex <- tolower(data$Sex)
+data$Sex[data$Sex %in% c("f",
+                         "femal",
+                         "female"
+                         )] <- "Female"
+data$Sex[data$Sex %in% c("m",
+                         "mal",
+                         "male"
+                         )] <- "Male"
+
+# For Marital_Status
+data$Marital_Status <- trimws(data$Marital_Status)
+data$Marital_Status <- gsub("\\s+", " ", data$Marital_Status)
+data$Marital_Status <- tolower(data$Marital_Status)
+data$Marital_Status[data$Marital_Status %in% c("annulled")] <- "Annulled"
+data$Marital_Status[data$Marital_Status %in% c("common law",
+                                               "commonlaw",
+                                               "common-law",
+                                               "common-law union"
+                                               )] <- "Common-Law"
+data$Marital_Status[data$Marital_Status %in% c("divorc",
+                                               "divorced"
+                                               )] <- "Divorced"
+data$Marital_Status[data$Marital_Status %in% c("maried",
+                                               "marr.",
+                                               "married"
+                                               )] <- "Married"
+data$Marital_Status[data$Marital_Status %in% c("sep.",
+                                               "separated",
+                                               "seperated"
+                                               )] <- "Separated"
+data$Marital_Status[data$Marital_Status %in% c("sgl.",
+                                               "sing.",
+                                               "singl",
+                                               "single"
+                                               )] <- "Single"
+data$Marital_Status[data$Marital_Status %in% c("wid.",
+                                               "widow",
+                                               "widowed"
+                                               )] <- "Widowed"
+
+# For Province
+data$Province <- trimws(data$Province)
+data$Province <- gsub("\\s+", " ", data$Province)
+data$Province <- tolower(data$Province)
+data$Province[data$Province %in% c("i.n.",
+                                   "ilocos n.",
+                                   "ilocos norte",
+                                   "ilocos norte.",
+                                   "in"
+                                   )] <- "Ilocos Norte"
+data$Province[data$Province %in% c("ilocos sur")] <- "Ilocos Sur"
+data$Province[data$Province %in% c("elyu",
+                                   "l.u.",
+                                   "la union",
+                                   "la-union",
+                                   "lu"
+                                   )] <- "La Union"
+data$Province[data$Province %in% c("pang.",
+                                   "pangasinan",
+                                   "pangasinan province",
+                                   "pangasinan."
+                                   )] <- "Pangasinan"
+
+#Checking the data
+table(data$Sex, useNA = "ifany")
+table(data$Marital_Status, useNA = "ifany")
+table(data$Province, useNA = "ifany")
+```
+
+*Now that the categories are clean, convert them all into the correct data type.*
+
+```{r}
+# Convert blanks to NA.
+data$Sex[data$Sex == ""] <- NA
+data$Marital_Status[data$Marital_Status == ""] <- NA
+data$Province[data$Province == ""] <- NA
+data$Region[data$Region == ""] <- NA
+data$Educational_Attainment[data$Educational_Attainment == ""] <- NA
+
+# Convert the columns to be categories.
+data$Sex <- factor(data$Sex)
+data$Marital_Status <- factor(data$Marital_Status)
+data$Province <- factor(data$Province)
+data$Region <- factor(data$Region)
+data$Educational_Attainment <- factor(data$Educational_Attainment)
+
+# Check the values.
+table(data$Sex, useNA = "ifany")
+table(data$Marital_Status, useNA = "ifany")
+table(data$Province, useNA = "ifany")
+table(data$Region, useNA = "ifany")
+table(data$Educational_Attainment, useNA = "ifany")
+```
+
+4.  Missing Values – Check for missing values in the variables included
+    in the data set. Apply an appropriate treatment, such as excluding
+    incomplete observations or using a justified imputation method.
+
+*The first thing to do is to determine how much of each column is missing by checking the percentage of missing values per column.*
+
+```{r}
+round(colMeans(is.na(data)) * 100, 1)
+```
+
+_These columns will be **set aside** since their missing percentage is less than 5%:_
+
+* *Sex = 1.1%*
+* *Marital_Status = 0.7%*
+* *Province = 0.9%*
+* *Region = 0.6%*
+* *Children = 1.1%*
+* *Height = 0.6%*
+* *Weight = 0.9%*
+* *Personal_Hours = 1.2%*
+* *Work_Hours = 0.9%*
+* *Sleep_Hours = 0.5%*
+
+```{r}
+cols_small <- c("Sex",
+                "Marital_Status",
+                "Province",
+                "Region",
+                "Children",
+                "Height",
+                "Weight",
+                "Personal_Hours",
+                "Work_Hours",
+                "Sleep_Hours"
+                )
+data$valid <- data$valid & complete.cases(data[, cols_small])
+sum(data$valid)
+sum(!data$valid)
+```
+
+
+*The following columns, on the other hand, have percentages greater than 20%. In fact, it's almost one-third of the sample size.*
+
+* *monthly_salary = 36.6%*
+* *Educational_Attainment = 36.4%*
+* *Perceived_Stress_Scale = 38.7%*
+* *House_Owner = 36.4%*
+* *Car_Owner = 36.4%*
+
+*The missing percentages are suspicious, especially since three of them have the exact missing percentage of 36.4%. I then checked how many rows are missing how many columns.*
+
+```{r}
+cols <- c("monthly_salary",
+          "Educational_Attainment",
+          "Perceived_Stress_Scale",
+          "House_Owner",
+          "Car_Owner"
+          )
+
+table(rowSums(is.na(data[, cols])))
+```
+
+*It is seen that 727 respondents were missing all five, which means that they did not answer that part of the survey, and 53 were missing one. Since imputing over a third of the values would rely too heavily on assumptions, all 780 incomplete observations will be set aside in addition to the ones set aside earlier, leaving 1096 complete responses. This leaves 55% complete responses which is still plenty for analysis.*
+
+```{r}
+data$valid <- data$valid & complete.cases(data[, cols])
+sum(data$valid)
+```
+
+## Assessment Proper
+
+### Task 1. Body Mass Index (BMI) Computation
+
+Calculate the Body Mass Index (BMI) of each respondent based on their
+recorded height and weight, expressed in kilograms per square meter
+(kg/m²).
+
+```{r task01}
+data$valid <- data$valid & !is.na(data$Height)
+data$BMI <- round(data$Weight / (data$Height / 100)^2, 2)
+summary(data$BMI[data$valid])
+```
+
+### Task 2. Stress Level Classification
+
+Create a new column named Stress_Level to categorize each respondent
+according to their Perceived Stress Scale (PSS) score. Use the following
+classification:
+
+| Stress Scale Value | Description     |
+|--------------------|-----------------|
+| 1 - 13             | "Relaxed"       |
+| 14 - 26            | "Normal"        |
+| 27 - 39            | "Stressed"      |
+
+Optional: The classifications for scores of 0 and 40 are may be
+specially assigned categories to distinguish the lowest and highest
+possible scores.
+
+```{r task02}
+data$Stress_Levels <- cut(data$Perceived_Stress_Scale,
+                          breaks = c(-Inf, 0, 13, 26, 39, Inf),
+                          labels = c("Very Relaxed",
+                                     "Relaxed",
+                                     "Normal",
+                                     "Stressed",
+                                     "Very Stressed"
+                                     ), ordered_result = TRUE
+                          )
+table(data$Stress_Levels[data$valid], useNA = "ifany")
+```
+
+### Task 3. Quantify Work-Life Balance
+
+Create a new column named `Time_Imbalance` by calculating the standard
+deviation of each respondent’s daily hours allocated to personal
+activities (`Personal_Hours`), work (`Work_Hours`), and sleep
+(`Sleep_Hours`). Use this measure to represent the variability in how
+respondents distribute their time across these three activities.
+Round-off to two (2) decimal places.
+
+Interpretation: A lower standard deviation indicates a more balanced
+distribution of time, while a higher standard deviation indicates
+greater disparity in time allocation.
+
+```{r task03}
+data$Time_Imbalance <- round(apply(data[, c("Personal_Hours",
+                                            "Work_Hours",
+                                            "Sleep_Hours"
+                                            )],
+                                   1, sd), 2)
+head(data[data$valid, c("Personal_Hours",
+                        "Work_Hours",
+                        "Sleep_Hours",
+                        "Time_Imbalance"
+                        )])
+```
+
+### Task 4. Sex Disaggregation
+
+Create a pie chart illustrating the distribution of respondents
+according to sex. Include the corresponding percentages and appropriate
+labels for each category.
+
+```{r task04}
+sex_df <- as.data.frame(table(data$Sex[data$valid]))
+names(sex_df) <- c("Sex", "Count")
+sex_df$Percent <- round(sex_df$Count / sum(sex_df$Count) * 100, 1)
+sex_df$Label <- paste0(sex_df$Sex, "\n", sex_df$Count, " (", sex_df$Percent, "%)")
+ggplot(sex_df, aes(x = "", y = Count, fill = Sex)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = Label), position = position_stack(vjust = 0.5)) +
+  labs(title = "Distribution of Respondents by Sex") +
+  theme_void()
+```
+
+### Task 5. Provincial Disaggregation of Stress Levels
+
+Create a bar graph illustrating the distribution of respondents across
+the different stress-level classifications in each province. Use a
+grouped or stacked bar chart to compare the number of respondents
+classified as Relaxed, Normal, Stressed, and other applicable categories
+across provinces.
+
+```{r task05}
+valid_data <- data[data$valid, ]
+ggplot(valid_data, aes(x = Province, fill = Stress_Levels)) +
+  geom_bar() +
+  labs(title = "Stress Levels of Respondents by Province",
+       x = "Province",
+       y = "Number of Respondents",
+       fill = "Stress Level") +
+  theme_minimal()
+```
+
+### Task 6. Age Distribution
+
+Create a histogram illustrating the age distribution of the respondents.
+Use appropriate class intervals (bins) to show how respondents are
+distributed across different age groups.
+
+```{r task06}
+ggplot(valid_data, aes(x = Age)) +
+  geom_histogram(binwidth = 5, boundary = 15,
+                 fill = "steelblue", color = "white") +
+  labs(title = "Age Distribution of Respondents",
+       x = "Age",
+       y = "Number of Respondents") +
+  theme_minimal()
+```
+
+### Task 7. Salary Distribution and Outlier Detection
+
+Create a boxplot illustrating the distribution of respondents' monthly
+salaries. Examine the boxplot to identify potential outliers and
+describe the overall spread and distribution of salaries.
+
+```{r task07}
+ggplot(valid_data, aes(y = monthly_salary)) +
+  geom_boxplot(fill = "lightgreen", outlier.color = "red") +
+  labs(title = "Distribution of Monthly Salaries",
+       y = "Monthly Salary") +
+  theme_minimal()
+```
+
+*That's a lot of red dots. Check the summary and figure out the IQR.*
+
+```{r}
+summary(valid_data$monthly_salary)
+IQR(valid_data$monthly_salary)
+```
+
+*Identify the outliers.*
+
+```{r}
+out <- boxplot.stats(valid_data$monthly_salary)$out
+length(out)
+range(out)
+```
+*There are 36 outliers that range from PHP 56,042 to PHP 95,814, implying that 36 respondents are high earners. Looking at the summary, the median is PHP 17,637 while the mean is PHP 21,187 which might be skewed by the high earners.*
+
+### Task 8. Association Between Educational Attainment and Number of Children
+
+Create a subset of the dataset containing only respondents whose
+educational attainment is Elementary, High School, or College. Using
+this subset, determine whether there is a statistically significant
+association between educational attainment and the number of children.
+
+*Create the subset.*
+
+```{r task08}
+edu_sub <- data[data$valid & data$Educational_Attainment %in% c("Elementary",
+                                                                "High School",
+                                                                "College"
+                                                                ), ]
+edu_sub$Educational_Attainment <- droplevels(edu_sub$Educational_Attainment)
+nrow(edu_sub)
+```
+
+*Before performing a statistical test, check the frequency of the Children column.*
+
+```{r}
+table(edu_sub$Children)
+```
+
+*I'll treat the number of Children as categories which means I'll be using the chi-square test. I'll group the higher counts first as their own category, then perform the test.*
+
+```{r}
+# Categorize the number of children.
+edu_sub$Children_Group <- cut(edu_sub$Children,
+                              breaks = c(-Inf, 0, 1, 2, 3, Inf),
+                              labels = c("0", "1", "2", "3", "4+"))
+
+# Form the table.
+children_tab <- table(edu_sub$Educational_Attainment, edu_sub$Children_Group)
+children_tab
+
+# Perform the test.
+children_test <- chisq.test(children_tab)
+children_test
+children_test$expected
+```
+
+*Since the p-value is greater than 0.05, there is no statistically significant association between educational attainment and the number of children. This means that the distribution of the number of children is similar across the three education levels.*
+
+### Task 9. Comparison of Monthly Salaries Across Provinces
+
+Determine whether there is a statistically significant difference in the
+average monthly salaries of respondents across the four provinces. Use
+an appropriate statistical test to compare the salary distributions
+among the provinces.
+
+*In Task 7, it is observed that there are a lot of outliers regarding the salaries which means that it is right-skewed. Thus, check the ANOVA's normality and variance homogeneity first.*
+
+```{r task09}
+# Normality of the residuals (Shapiro-Wilk works for up to 5,000 values)
+salary_aov <- aov(monthly_salary ~ Province, data = valid_data)
+shapiro.test(residuals(salary_aov))
+
+# Equal variances across provinces
+bartlett.test(monthly_salary ~ Province, data = valid_data)
+```
+
+*Based on the normality test, the salaries are not normally distributed. Thus, Kruskal-Wallis should be performed instead.*
+
+```{r}
+kruskal.test(monthly_salary ~ Province, data = valid_data)
+tapply(valid_data$monthly_salary, valid_data$Province, median)
+```
+
+*The p-value > 0.05 which means that there is no statistically significant difference in the monthly salaries across the four provinces. No post hoc test is needed.*
+
+### Task 10. Scatterplot and Simple Linear Regression Analysis
+
+Select one of the following variables as the independent variable (X)
+and use Happiness_Index as the dependent variable (Y):
+
+a.  monthly_salary
+b.  Time_Imbalance
+c.  Perceived_Stress_Scale
+d.  BMI
+
+Create a scatterplot to visualize the relationship between the selected
+independent variable and Happiness Index. Fit a simple linear regression
+line to the data and use the regression results to determine whether the
+selected variable significantly predicts respondents' Happiness Index.
+
+*For the given variables, I decided to explore the relationship between the Happiness_Index and BMI (as I am currently focusing on my health).*
+
+```{r task10}
+ggplot(valid_data, aes(x = BMI, y = Happiness_Index)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(title = "Happiness Index vs. BMI",
+       x = "BMI",
+       y = "Happiness Index") +
+  theme_minimal()
+```
+
+```{r}
+happy_model <- lm(Happiness_Index ~ BMI, data = valid_data)
+summary(happy_model)
+```
+
+*The trendline of the scatterplot is essentially flat, implying that BMI does not predict the Happiness_Index of an individual. This is further confirmed by the regression analysis where the p-value > 0.05 showing that there is no statistically significant relationship between BMI and Happiness_Index.*
+
+### Bonus Task (for Bonus Points). Multiple Linear Regression - Happiness Index
+
+Determine whether the selected socioeconomic, demographic, lifestyle,
+and well-being variables jointly predict the respondents' Happiness
+Index. Examine the combined predictive contribution of the following
+independent variables:
+
+1.  monthly_salary
+2.  Age
+3.  BMI
+4.  Children
+5.  Perceived_Stress_Scale
+6.  Educational_Attainment
+7.  Time_Imbalance
+8.  House_Owner
+9.  Car_Owner
+
+You may exclude some independent variables if necessary, but you must
+retain at least five (5) predictors in the final regression model.
+
+*I choose to retain the numeric independent variables which are monthly_salary, Age, BMI, Children, Perceived_Stress_Scale, and Time_Imbalance.*
+
+```{r bonustask}
+# Rebuild the analysis subset.
+valid_data <- data[data$valid, ]
+
+# Check for overlapping predictors i.e., those whose |r| > 0.7.
+predictors <- c("monthly_salary",
+                "Age",
+                "BMI",
+                "Children",
+                "Perceived_Stress_Scale",
+                "Time_Imbalance"
+                )
+round(cor(valid_data[, predictors]), 2)
+```
+
+*There is no multicollinearity problem as r ranges from -0.30 to 0.37, so proceed with the test by fitting the model.*
+
+```{r}
+num_model <- lm(Happiness_Index ~ monthly_salary +
+                  Age +
+                  BMI +
+                  Children +
+                  Perceived_Stress_Scale +
+                  Time_Imbalance, data =
+                  valid_data
+                )
+summary(num_model)
+```
+
+*The F-test of the model is significant (F = 119.6, p < 0.001), which means that the predictors jointly predict the Happiness_Index, explaining 39.4% of its variation (adjusted R-squared = 0.394). Looking at each predictor, the p-values for all the columns except for BMI are less than 0.05. Specifically, monthly_salary, Age, and Children are positive predictors, while Time_Imbalance and Perceived_Stress_Scale are negative predictors. BMI is not a significant predictor, which was also discovered in Task 10.*
+
+*The last thing to do is to check the regression assumptions.*
+
+```{r}
+par(mfrow = c(2, 2))
+plot(num_model)
+par(mfrow = c(1, 1))
+```
+
+```{r}
+shapiro.test(residuals(num_model))
+```
+
+*The diagnostic plots showed that there are no clear violations of the regression assumptions. The residuals were randomly scattered around zero, indicating linearity, and their spread was consistent across fitted values, indicating equal variance. No observations had high leverage or exceeded Cook's distance. The Shapiro-Wilk test indicated a slight departure from normality (W = 0.984, p < 0.001), but the Q-Q plot showed the residuals closely following the normal line. Given the large sample (n = 1,096), this small departure is unlikely to affect the results.*
